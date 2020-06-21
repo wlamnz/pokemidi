@@ -1,10 +1,10 @@
+#!/usr/bin/python
+
 #--------------------------------------------------------#
 # Author: William Lam                                    #
 #                                                        #
 # Hardcoded addNote test using Turkish March.            #
 #--------------------------------------------------------#
-
-#!/usr/bin/python
 
 from midiutil.MidiFile import MIDIFile
 

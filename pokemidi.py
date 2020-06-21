@@ -1,8 +1,8 @@
+#!/usr/bin/python
+
 #--------------------------------------------------------#
 # Author: William Lam                                    #
 #--------------------------------------------------------#
-
-#!/usr/bin/python
 
 #Import the library
 from midiutil.MidiFile import MIDIFile
@@ -15,18 +15,21 @@ track = 0
 time = 0
 
 # Add track name and tempo.
-MyMIDI.addTrackName(track,time,"Sample Track")
-MyMIDI.addTempo(track,time,120)
+MyMIDI.addTrackName(track, time, "Sample Track")
+MyMIDI.addTempo(track, time, 120) # TODO: Dynamically determine the tempo
  
 # Add a note. addNote expects the following information:
-track = 0
+#track, channel, pitch, time, duration, volume
+
 channel = 2
-pitch = 60
-time = 0
-duration = 0.3
+dur_unit = 0.2
 volume = 100
 
-time_inc = 0
+class ChannelDetail:
+    def __init__(self, channel):
+        self.channel = channel
+        self.time = 0
+        self.note_tuples = []
 
 note_dict = {
     "A0" : 21,
@@ -70,7 +73,7 @@ note_dict = {
     "G#3" : 56,
     "A3" : 57,
     "A#3" : 58,
-    "B3" : 69,
+    "B3" : 59,
 
     "C4" : 60,
     "C#4" : 61,
@@ -104,63 +107,88 @@ note_dict = {
     "D#6" : 87,
     "E6" : 88,
     "F6" : 89,
-    "F#6" : 80,
-    "G6" : 81,
-    "G#6" : 82,
-    "A6" : 83,
-    "A#6" : 84,
-    "B6" : 85,
+    "F#6" : 90,
+    "G6" : 91,
+    "G#6" : 92,
+    "A6" : 93,
+    "A#6" : 94,
+    "B6" : 95,
 
-    "C7" : 86,
-    "C#7" : 87,
-    "D7" : 88,
-    "D#7" : 89,
-    "E7" : 90,
-    "F7" : 91,
-    "F#7" : 92,
-    "G7" : 93,
-    "G#7" : 94,
-    "A7" : 95,
-    "A#7" : 96,
-    "B7" : 97,
+    "C7" : 96,
+    "C#7" : 97,
+    "D7" : 98,
+    "D#7" : 99,
+    "E7" : 100,
+    "F7" : 101,
+    "F#7" : 102,
+    "G7" : 103,
+    "G#7" : 104,
+    "A7" : 105,
+    "A#7" : 106,
+    "B7" : 107,
 
-    "C8" : 98,
+    "C8" : 108,
 }
 
-inside_branch = False
 octave = 4 # Middle C is the default octave if not defined
+channel_details = []
+current_channel = None 
 
-notes = []
-
-with open("route1.asm", "r") as file:
+# TODO make script take in a filename
+with open("music/trainerbattle.asm", "r") as file:
     for line in file:
         stripped_line = line.strip()
 
-        # Hard code the loop up for the music branch for now.
-        if stripped_line == "Music_Routes1_branch_9c65::":
-            inside_branch = True
-            continue
-        if (inside_branch):
-            if (stripped_line == "sound_ret"):
-                inside_branch = False
-                continue
+        # Either a new channel or new branch 
+        if (stripped_line.startswith("Music")):
+            octave = 4 # Always reset the octave when we start a new music branch or channel
+            parts = stripped_line.split("_");
 
-            parts = stripped_line.split()
-            if (parts[0] == "octave"):
-               octave = int(parts[1])
-            if (parts[0] == "note"):
-                note = parts[1].replace(",", "").replace("_","")
-                dur_length = int(parts[2])
-                notes.append((note, octave, dur_length))
+            if (parts[-1].startswith("Ch")):
+                # This is a new channel. Create a new channel detail.
+                channel = len(channel_details) + 1
+                print("Created new channel " + str(channel))
+                current_channel = ChannelDetail(channel)
+                channel_details.append(current_channel)
+            
+            # TODO: Deal with branch calls
+            continue
+
+        if (stripped_line == "sound_ret"):
+            continue
+
+        if (current_channel == None):
+            continue
+
+        parts = stripped_line.split()
+        if (len(parts) == 0):
+            continue
+
+        if (parts[0] == "octave"):
+            octave = int(parts[1])
+        if (parts[0] == "note"):
+            note = parts[1].replace(",", "").replace("_","")
+            dur_length = int(parts[2])
+            current_channel.note_tuples.append((note, octave, dur_length))
+        if (parts[0] == "rest"):
+            dur_length = int(parts[1])
+            current_channel.note_tuples.append((0, -1, dur_length))
 
 # Now add the note.
-for tup in notes:
-    key = tup[0] + str(tup[1])
-    pitch = note_dict[key] 
-    print(key, pitch)
-    MyMIDI.addNote(track, channel, pitch, time, duration * tup[2], volume)
-    time = time + (duration * tup[2])
+for cd in channel_details:
+    for tup in cd.note_tuples:
+        note = tup[0]
+        octave = tup[1]
+        pitch = 255 
 
+        if (octave != -1):
+            key = note + str(octave)
+            pitch = note_dict[key] 
+            #print(key, pitch)
+
+        duration = dur_unit * tup[2] # duration is calculated by unit * length
+        MyMIDI.addNote(track, cd.channel, pitch, cd.time, duration, volume)
+        cd.time = cd.time + duration
 
 # And write it to disk.
 binfile = open("output.mid", 'wb')
