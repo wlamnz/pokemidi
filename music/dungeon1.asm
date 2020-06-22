@@ -672,4 +672,4 @@ Music_Dungeon1_branch_7e202::
 	drum_note 10, 4
 	drum_note 10, 4
 	drum_note 11, 4
-	sound_ret<F7>
+	sound_ret
