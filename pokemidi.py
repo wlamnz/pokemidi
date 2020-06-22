@@ -7,6 +7,9 @@
 #Import the library
 from midiutil.MidiFile import MIDIFile
 
+# TODO make script take in a filename
+filePath = "music/trainerbattle.asm" 
+
 # Create the MIDIFile Object with 1 track
 MyMIDI = MIDIFile(1)
 
@@ -16,20 +19,24 @@ time = 0
 
 # Add track name and tempo.
 MyMIDI.addTrackName(track, time, "Sample Track")
-MyMIDI.addTempo(track, time, 120) # TODO: Dynamically determine the tempo
+MyMIDI.addTempo(track, time, 112) # TODO: Dynamically determine the tempo
  
 # Add a note. addNote expects the following information:
 #track, channel, pitch, time, duration, volume
 
 channel = 2
-dur_unit = 0.2
-volume = 100
+dur_unit = 0.16
+volume = 100 
+
+# Keep track of all the music branches (and their content)
+branches_dict = {}
 
 class ChannelDetail:
     def __init__(self, channel):
         self.channel = channel
         self.time = 0
         self.note_tuples = []
+        self.branches = []
 
 note_dict = {
     "A0" : 21,
@@ -130,64 +137,109 @@ note_dict = {
     "C8" : 108,
 }
 
+def add_to_note_tuples(branch_name, cd):
+    sound_call_branches = []
+    for v in branches_dict[branch_name]:
+        # If the value is a string. It must be a sound_call instruction 
+        if isinstance(v, basestring):
+            sound_call_branches.extend(add_to_note_tuples(v, cd))
+            sound_call_branches.append(v)
+        else:
+            # The value is already a note tuple, add it to the list.
+            cd.note_tuples.append(v)
+    return sound_call_branches
+
 octave = 4 # Middle C is the default octave if not defined
 channel_details = []
 current_channel = None 
 
-# TODO make script take in a filename
-with open("music/trainerbattle.asm", "r") as file:
+# Assumption: sound call is only made on music branch
+current_branch = None
+
+with open(filePath, "r") as file:
     for line in file:
         stripped_line = line.strip()
 
         # Either a new channel or new branch 
-        if (stripped_line.startswith("Music")):
+        if stripped_line.startswith("Music"):
             octave = 4 # Always reset the octave when we start a new music branch or channel
             parts = stripped_line.split("_");
 
-            if (parts[-1].startswith("Ch")):
+            if parts[-1].startswith("Ch"):
                 # This is a new channel. Create a new channel detail.
                 channel = len(channel_details) + 1
                 print("Created new channel " + str(channel))
                 current_channel = ChannelDetail(channel)
                 channel_details.append(current_channel)
+                current_branch = None
             
-            # TODO: Deal with branch calls
+            if parts[-2].startswith("branch") and current_channel != None:
+                current_branch = stripped_line[0:len(stripped_line) - 2]
+                # Keep track of the branch order and initialise their list
+                current_channel.branches.append(current_branch)
+                branches_dict[current_branch] = []
+
             continue
 
-        if (stripped_line == "sound_ret"):
+        if stripped_line == "sound_ret":
             continue
 
-        if (current_channel == None):
+        if current_channel == None:
             continue
 
         parts = stripped_line.split()
-        if (len(parts) == 0):
+        if len(parts) == 0:
             continue
 
-        if (parts[0] == "octave"):
+        if parts[0] == "octave":
             octave = int(parts[1])
-        if (parts[0] == "note"):
+        elif parts[0] == "note":
             note = parts[1].replace(",", "").replace("_","")
             dur_length = int(parts[2])
-            current_channel.note_tuples.append((note, octave, dur_length))
-        if (parts[0] == "rest"):
+            tup = (note, octave, dur_length)
+            if current_branch != None:
+                branches_dict[current_branch].append(tup)
+            else:
+                current_channel.note_tuples.append(tup)
+        elif parts[0] == "rest":
             dur_length = int(parts[1])
-            current_channel.note_tuples.append((0, -1, dur_length))
+            tup = (0, -1, dur_length)
+            if current_branch != None:
+                branches_dict[current_branch].append(tup)
+            else:
+                current_channel.note_tuples.append(tup)
+        elif parts[0] == "sound_call":
+            if current_branch != None:
+                # Add the call branch 
+                branches_dict[current_branch].append(parts[1])
 
-# Now add the note.
+
+# Add the notes to the midi file
 for cd in channel_details:
+    sound_call_branches = []
+
+    for branch in cd.branches:
+        if branch in sound_call_branches:
+            # Assumption: sound call branches are never main music branches
+            continue
+            
+        # Add all note tuples into the cd.note_tuples list
+        sound_call_branches.extend(add_to_note_tuples(branch, cd))
+
     for tup in cd.note_tuples:
         note = tup[0]
         octave = tup[1]
+        dur_length = tup[2];
         pitch = 255 
+        duration = dur_unit * dur_length # duration is calculated by unit * length
 
-        if (octave != -1):
+        # Octave is -1 when a rest opcode is found
+        if octave != -1:
             key = note + str(octave)
             pitch = note_dict[key] 
             #print(key, pitch)
+            MyMIDI.addNote(track, cd.channel, pitch, cd.time, duration, volume)
 
-        duration = dur_unit * tup[2] # duration is calculated by unit * length
-        MyMIDI.addNote(track, cd.channel, pitch, cd.time, duration, volume)
         cd.time = cd.time + duration
 
 # And write it to disk.
