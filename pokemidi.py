@@ -19,7 +19,6 @@ time = 0
 
 # Add track name and tempo.
 MyMIDI.addTrackName(track, time, "Sample Track")
-MyMIDI.addTempo(track, time, 112) # TODO: Dynamically determine the tempo
  
 # Add a note. addNote expects the following information:
 #track, channel, pitch, time, duration, volume
@@ -156,6 +155,8 @@ current_channel = None
 # Assumption: sound call is only made on music branch
 current_branch = None
 
+tempo = 120
+
 with open(filePath, "r") as file:
     for line in file:
         stripped_line = line.strip()
@@ -212,7 +213,11 @@ with open(filePath, "r") as file:
             if current_branch != None:
                 # Add the call branch 
                 branches_dict[current_branch].append(parts[1])
+        elif parts[0] == "tempo":
+            tempo = int(parts[1])
 
+print 'Tempo used ' + str(tempo)
+MyMIDI.addTempo(track, time, tempo) 
 
 # Add the notes to the midi file
 for cd in channel_details:
