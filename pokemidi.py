@@ -24,7 +24,8 @@ MyMIDI.addTrackName(track, time, "Sample Track")
 #track, channel, pitch, time, duration, volume
 
 channel = 2
-dur_unit = 0.16
+#dur_unit = 0.165
+dur_unit = 0.18 / 12.0
 volume = 100 
 
 # Keep track of all the music branches (and their content)
@@ -155,7 +156,9 @@ current_channel = None
 # Assumption: sound call is only made on music branch
 current_branch = None
 
-tempo = 120
+speed = 12
+
+tempo = 110
 
 with open(filePath, "r") as file:
     for line in file:
@@ -197,14 +200,14 @@ with open(filePath, "r") as file:
         elif parts[0] == "note":
             note = parts[1].replace(",", "").replace("_","")
             dur_length = int(parts[2])
-            tup = (note, octave, dur_length)
+            tup = (note, octave, dur_length * dur_unit * speed)
             if current_branch != None:
                 branches_dict[current_branch].append(tup)
             else:
                 current_channel.note_tuples.append(tup)
         elif parts[0] == "rest":
             dur_length = int(parts[1])
-            tup = (0, -1, dur_length)
+            tup = (0, -1, dur_length * dur_unit * speed)
             if current_branch != None:
                 branches_dict[current_branch].append(tup)
             else:
@@ -213,8 +216,13 @@ with open(filePath, "r") as file:
             if current_branch != None:
                 # Add the call branch 
                 branches_dict[current_branch].append(parts[1])
+        elif parts[0] == "note_type":
+            speed = int(parts[1][0:len(parts[1]) - 1])
+            # TODO: Volume and fade
         elif parts[0] == "tempo":
             tempo = int(parts[1])
+
+tempo = 120 # TODO: Fix this. Hardcoding this for now.            
 
 print 'Tempo used ' + str(tempo)
 MyMIDI.addTempo(track, time, tempo) 
@@ -234,9 +242,8 @@ for cd in channel_details:
     for tup in cd.note_tuples:
         note = tup[0]
         octave = tup[1]
-        dur_length = tup[2];
+        duration = tup[2]
         pitch = 255 
-        duration = dur_unit * dur_length # duration is calculated by unit * length
 
         # Octave is -1 when a rest opcode is found
         if octave != -1:
