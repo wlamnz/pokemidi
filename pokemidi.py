@@ -8,7 +8,7 @@
 from midiutil.MidiFile import MIDIFile
 
 # TODO make script take in a filename
-filePath = "music/silphco.asm" 
+filePath = "music/surfing.asm" 
 
 # Create the MIDIFile Object with 1 track
 MyMIDI = MIDIFile(1)
@@ -185,7 +185,6 @@ current_channel = None
 current_branch = None 
 
 speed = 12
-tempo = 110
 
 with open(filePath, "r") as file:
     for line in file:
@@ -193,10 +192,10 @@ with open(filePath, "r") as file:
 
         # Either a new channel or new branch 
         if stripped_line.startswith("Music"):
-            octave = 4 # Always reset the octave when we start a new music branch or channel
             parts = stripped_line.split("_");
 
             if parts[-1].startswith("Ch"):
+                octave = 4 # Always reset the octave when we start a new music channel
                 # This is a new channel. Create a new channel detail.
                 channel = len(channel_details) + 1
                 print("Created new channel " + str(channel))
@@ -255,7 +254,7 @@ with open(filePath, "r") as file:
             loop_branch = parts[2]
             add_branch_loops(current_branch, count, loop_branch)
 
-tempo = 110# TODO: Fix this. Hardcoding this for now.            
+tempo = 115 # TODO: Fix this. Hardcoding this for now.            
 
 print 'Tempo used ' + str(tempo)
 MyMIDI.addTempo(track, time, tempo) 
@@ -264,7 +263,7 @@ MyMIDI.addTempo(track, time, tempo)
 for cd in channel_details:
     sound_call_branches = []
 
-#cd = channel_details[1]
+#cd = channel_details[2]
 #sound_call_branches = []
 
     for branch in cd.branches:
