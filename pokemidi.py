@@ -8,7 +8,7 @@
 from midiutil.MidiFile import MIDIFile
 
 # TODO make script take in a filename
-filePath = "music/cities1.asm" 
+filePath = "music/dungeon3.asm" 
 
 # Create the MIDIFile Object with 1 track
 MyMIDI = MIDIFile(1)
@@ -160,6 +160,13 @@ def add_to_note_tuples(branch_name, cd):
             cd.note_tuples.append(v)
     return sound_call_branches
 
+def add_branch_loops(branch_name, count, loop_branch):
+    print branch_name
+    loop_branch_tuples = branches_dict[loop_branch][:] # Copy the tuple list
+
+    for i in xrange(1, count):
+        branches_dict[branch_name] = branches_dict[branch_name] + loop_branch_tuples
+
 octave = 4 # Middle C is the default octave if not defined
 channel_details = []
 current_channel = None 
@@ -184,8 +191,8 @@ with open(filePath, "r") as file:
                 print("Created new channel " + str(channel))
                 current_channel = ChannelDetail(channel)
                 channel_details.append(current_channel)
-                current_branch = None 
-                current_branch = 'channel_branch_' + str(channel) 
+
+                current_branch = stripped_line[0:len(stripped_line) - 2]
                 current_channel.branches.append(current_branch)
                 branches_dict[current_branch] = []
             
@@ -233,8 +240,12 @@ with open(filePath, "r") as file:
             # TODO: Volume and fade
         elif parts[0] == "tempo":
             tempo = int(parts[1])
+        elif parts[0] == "sound_loop":
+            count = int(parts[1][0:len(parts[1]) - 1])
+            loop_branch = parts[2]
+            add_branch_loops(current_branch, count, loop_branch)
 
-tempo = 120 # TODO: Fix this. Hardcoding this for now.            
+tempo = 120  # TODO: Fix this. Hardcoding this for now.            
 
 print 'Tempo used ' + str(tempo)
 MyMIDI.addTempo(track, time, tempo) 
@@ -243,11 +254,14 @@ MyMIDI.addTempo(track, time, tempo)
 for cd in channel_details:
     sound_call_branches = []
 
+#cd = channel_details[0]
+#sound_call_branches = []
+
     for branch in cd.branches:
         if branch in sound_call_branches:
             # Assumption: sound call branches are never main music branches
             continue
-            
+
         # Add all note tuples into the cd.note_tuples list
         sound_call_branches.extend(add_to_note_tuples(branch, cd))
 
@@ -261,7 +275,7 @@ for cd in channel_details:
         if octave != -1:
             key = note + str(octave)
             pitch = note_dict[key] 
-            #print(key, pitch)
+            # print(key, pitch)
             MyMIDI.addNote(track, cd.channel, pitch, cd.time, duration, volume)
 
         cd.time = cd.time + duration
