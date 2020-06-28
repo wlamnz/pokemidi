@@ -8,7 +8,7 @@
 from midiutil.MidiFile import MIDIFile
 
 # TODO make script take in a filename
-filePath = "music/trainerbattle.asm" 
+filePath = "music/cities1.asm" 
 
 # Create the MIDIFile Object with 1 track
 MyMIDI = MIDIFile(1)
@@ -135,6 +135,17 @@ note_dict = {
     "B7" : 107,
 
     "C8" : 108,
+    "C#8" : 109,
+    "D8" : 110,
+    "D#8" : 111,
+    "E8" : 112,
+    "F8" : 113,
+    "F#8" : 114,
+    "G8" : 115,
+    "G#8" : 116,
+    "A8" : 117,
+    "A#8" : 118,
+    "B8" : 119,
 }
 
 def add_to_note_tuples(branch_name, cd):
@@ -152,9 +163,7 @@ def add_to_note_tuples(branch_name, cd):
 octave = 4 # Middle C is the default octave if not defined
 channel_details = []
 current_channel = None 
-
-# Assumption: sound call is only made on music branch
-current_branch = None
+current_branch = None 
 
 speed = 12
 
@@ -175,7 +184,10 @@ with open(filePath, "r") as file:
                 print("Created new channel " + str(channel))
                 current_channel = ChannelDetail(channel)
                 channel_details.append(current_channel)
-                current_branch = None
+                current_branch = None 
+                current_branch = 'channel_branch_' + str(channel) 
+                current_channel.branches.append(current_branch)
+                branches_dict[current_branch] = []
             
             if parts[-2].startswith("branch") and current_channel != None:
                 current_branch = stripped_line[0:len(stripped_line) - 2]
