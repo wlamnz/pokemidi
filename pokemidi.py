@@ -8,7 +8,8 @@
 from midiutil.MidiFile import MIDIFile
 
 # TODO make script take in a filename
-filePath = "music/surfing.asm" 
+filePath = "music/trainerbattle.asm" 
+tempo = 120 # TODO: Fix this. Hardcoding this for now.            
 
 # Create the MIDIFile Object with 1 track
 MyMIDI = MIDIFile(1)
@@ -151,29 +152,45 @@ note_dict = {
 
 global_speed = 12
 
-def add_to_note_tuples(branch_name, cd):
+def add_to_note_tuples(branch_name, cd, max_ch_dur_length):
     global global_speed
     sound_call_branches = []
-    for v in branches_dict[branch_name]:
 
-        # If the value is a string. It must be a sound_call instruction 
-        if isinstance(v, basestring):
-            sound_call_branches.extend(add_to_note_tuples(v, cd))
-            sound_call_branches.append(v)
-        else:
-            if v[0] == 'note_type':
-                global_speed = v[1]
-            else: 
-                note = v[0]
-                octave = v[1]
-                dur_length = v[2]
-                duration = global_speed * dur_length * dur_unit 
-               
-                # The value is already a note tuple, add it to the list.
-                cd.note_tuples.append((note, octave, duration))
+    for v in branches_dict[branch_name]:
+        opcode = v[0]
+
+        if opcode == 'sound_call': 
+            sound_call_branch = v[1]
+            sound_call_branches.extend(add_to_note_tuples(sound_call_branch, cd, max_ch_dur_length))
+            sound_call_branches.append(sound_call_branch)
+        elif opcode == 'note_type':
+            global_speed = v[1]
+        elif opcode == 'sound_loop':
+            loop_branch = v[1] 
+
+            # TODO: Looping should should flow to the other music branches if there's no loop (see dungeon1)
+            # TODO: Fix infinite looping due to drum channel not increasing channel duration (see vermilion)
+            cur_ch_dur_length = 0
+            for tup in cd.note_tuples:
+                cur_ch_dur_length = cur_ch_dur_length + tup[3]
+
+            if cur_ch_dur_length < max_ch_dur_length:
+                add_to_note_tuples(loop_branch, cd, max_ch_dur_length)
+
+        else: 
+            note = v[1]
+            octave = v[2]
+            dur_length = v[3]
+            duration = global_speed * dur_length * dur_unit 
+           
+            # The value is already a note tuple, add it to the list.
+            cd.note_tuples.append((note, octave, duration, dur_length))
     return sound_call_branches
 
 def add_branch_loops(branch_name, count, loop_branch):
+    if count == 0:
+        branches_dict[branch_name].append(('sound_loop', loop_branch))
+
     loop_branch_tuples = branches_dict[loop_branch][:] # Copy the tuple list
 
     for i in xrange(1, count):
@@ -185,6 +202,8 @@ current_channel = None
 current_branch = None 
 
 speed = 12
+max_ch_dur_length = 0
+current_ch_dur_length = 0
 
 with open(filePath, "r") as file:
     for line in file:
@@ -202,6 +221,8 @@ with open(filePath, "r") as file:
                 current_channel = ChannelDetail(channel)
                 channel_details.append(current_channel)
                 speed = 12
+                max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length)
+                current_ch_dur_length = 0
 
             current_branch = stripped_line[0:len(stripped_line) - 2]
             branches_dict[current_branch] = []
@@ -226,14 +247,18 @@ with open(filePath, "r") as file:
         elif parts[0] == "note":
             note = parts[1].replace(",", "").replace("_","")
             dur_length = int(parts[2])
-            tup = (note, octave, dur_length)
+            tup = ('note', note, octave, dur_length)
+            current_ch_dur_length = current_ch_dur_length + dur_length
+
             if current_branch != None:
                 branches_dict[current_branch].append(tup)
             else:
                 current_channel.note_tuples.append(tup)
         elif parts[0] == "rest":
             dur_length = int(parts[1])
-            tup = (0, -1, dur_length)
+            tup = ('rest', 0, -1, dur_length)
+            current_ch_dur_length = current_ch_dur_length + dur_length
+
             if current_branch != None:
                 branches_dict[current_branch].append(tup)
             else:
@@ -241,30 +266,36 @@ with open(filePath, "r") as file:
         elif parts[0] == "sound_call":
             if current_branch != None:
                 # Add the call branch 
-                branches_dict[current_branch].append(parts[1])
+                branches_dict[current_branch].append(('sound_call', parts[1]))
         elif parts[0] == "note_type":
             speed = int(parts[1][0:len(parts[1]) - 1])
             branches_dict[current_branch].append(('note_type', speed))
 
             # TODO: Volume and fade
-        elif parts[0] == "tempo":
-            tempo = int(parts[1])
+        #elif parts[0] == "tempo":
+        #    tempo = int(parts[1])
         elif parts[0] == "sound_loop":
             count = int(parts[1][0:len(parts[1]) - 1])
             loop_branch = parts[2]
             add_branch_loops(current_branch, count, loop_branch)
 
-tempo = 115 # TODO: Fix this. Hardcoding this for now.            
+# Edge case to deal with the last channel duration length just in case it is the max 
+max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length)
+max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length) * 2 # TODO: Remove (looping the music two times)
 
 print 'Tempo used ' + str(tempo)
 MyMIDI.addTempo(track, time, tempo) 
 
 # Add the notes to the midi file
 for cd in channel_details:
+    print cd.channel
     sound_call_branches = []
 
 #cd = channel_details[2]
 #sound_call_branches = []
+
+    total_notes = 0
+    total_duration = 0
 
     for branch in cd.branches:
         if branch in sound_call_branches:
@@ -272,22 +303,26 @@ for cd in channel_details:
             continue
 
         # Add all note tuples into the cd.note_tuples list
-        sound_call_branches.extend(add_to_note_tuples(branch, cd))
+        sound_call_branches.extend(add_to_note_tuples(branch, cd, max_ch_dur_length))
 
     for tup in cd.note_tuples:
         note = tup[0]
         octave = tup[1]
         duration = tup[2]
         pitch = 255 
+        total_duration  = total_duration + duration
+        total_notes = total_notes + tup[3]
 
         # Octave is -1 when a rest opcode is found
         if octave != -1:
             key = note + str(octave)
             pitch = note_dict[key] 
-            # print(key, pitch)
+            #print(key, pitch, cd.time, duration)
             MyMIDI.addNote(track, cd.channel, pitch, cd.time, duration, volume)
 
         cd.time = cd.time + duration
+    
+    print total_duration, total_notes
 
 # And write it to disk.
 binfile = open("output.mid", 'wb')
