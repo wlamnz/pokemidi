@@ -165,6 +165,8 @@ def add_to_note_tuples(branch_name, cd, max_ch_dur_length):
             sound_call_branches.append(sound_call_branch)
         elif opcode == 'note_type':
             global_speed = v[1]
+        elif opcode == 'sound_ret':
+            break    
         elif opcode == 'sound_loop':
             loop_branch = v[1] 
 
@@ -179,8 +181,14 @@ def add_to_note_tuples(branch_name, cd, max_ch_dur_length):
                     if branch == loop_branch:
                         add = True
 
-                    if add == True:
-                        add_to_note_tuples(branch, cd, max_ch_dur_length)
+                    if add:
+                        partial_branch = True # Music branches without sound_ret
+                        for tup in branches_dict[branch]:
+                            if tup[0] == 'sound_ret':
+                                partial_branch = False
+
+                        if partial_branch:
+                            add_to_note_tuples(branch, cd, max_ch_dur_length)
 
         else: 
             note = v[1]
@@ -238,6 +246,7 @@ with open(filePath, "r") as file:
             continue
 
         if stripped_line == "sound_ret":
+            branches_dict[current_branch].append(("sound_ret", True)) # TODO Is there a way to avoid adding of True?
             continue
 
         if current_channel == None:
@@ -286,7 +295,7 @@ with open(filePath, "r") as file:
 
 # Edge case to deal with the last channel duration length just in case it is the max 
 max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length)
-max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length) * 2 # TODO: Remove (looping the music two times)
+max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length) * 4 # TODO: Remove (looping the music two times)
 
 print 'Tempo used ' + str(tempo)
 MyMIDI.addTempo(track, time, tempo) 
