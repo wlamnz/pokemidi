@@ -8,7 +8,7 @@
 from midiutil.MidiFile import MIDIFile
 
 # TODO make script take in a filename
-filePath = "music/trainerbattle.asm" 
+filePath = "music/dungeon1.asm" 
 tempo = 120 # TODO: Fix this. Hardcoding this for now.            
 
 # Create the MIDIFile Object with 1 track
@@ -168,14 +168,19 @@ def add_to_note_tuples(branch_name, cd, max_ch_dur_length):
         elif opcode == 'sound_loop':
             loop_branch = v[1] 
 
-            # TODO: Looping should should flow to the other music branches if there's no loop (see dungeon1)
             # TODO: Fix infinite looping due to drum channel not increasing channel duration (see vermilion)
             cur_ch_dur_length = 0
             for tup in cd.note_tuples:
                 cur_ch_dur_length = cur_ch_dur_length + tup[3]
 
             if cur_ch_dur_length < max_ch_dur_length:
-                add_to_note_tuples(loop_branch, cd, max_ch_dur_length)
+                add = False
+                for branch in cd.branches:
+                    if branch == loop_branch:
+                        add = True
+
+                    if add == True:
+                        add_to_note_tuples(branch, cd, max_ch_dur_length)
 
         else: 
             note = v[1]
