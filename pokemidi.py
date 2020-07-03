@@ -6,10 +6,23 @@
 
 #Import the library
 from midiutil.MidiFile import MIDIFile
+import sys 
+
+args = sys.argv[1:]
+args_size = len(args)
+
+if args_size < 1:
+    print 'usage: pokemidi.py FILE [LOOP_TIMES] [TEMPO]'
+    sys.exit(0)
+
+
+print args
 
 # TODO make script take in a filename
-filePath = "music/dungeon1.asm" 
-tempo = 125# TODO: Fix this. Hardcoding this for now.            
+# filePath = "music/dungeon1.asm" 
+filePath = args[0]
+loop_times = int(args[1]) if args_size >= 2 else 1 # By default, just loop the music once
+tempo = int(args[2]) if args_size == 3 else 120 # By default, set the tempo to 120
 
 # Create the MIDIFile Object with 1 track
 MyMIDI = MIDIFile(1)
@@ -299,8 +312,7 @@ with open(filePath, "r") as file:
             add_branch_loops(current_branch, count, loop_branch)
 
 # Edge case to deal with the last channel duration length just in case it is the max 
-max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length)
-max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length) * 2 # TODO: Remove (looping the music two times)
+max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length) * loop_times
 
 print 'Tempo used ' + str(tempo)
 MyMIDI.addTempo(track, time, tempo) 
