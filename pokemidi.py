@@ -15,9 +15,6 @@ if args_size < 1:
     print 'usage: pokemidi.py FILE [LOOP_TIMES] [TEMPO]'
     sys.exit(0)
 
-
-# TODO make script take in a filename
-# filePath = "music/dungeon1.asm" 
 filePath = args[0]
 loop_times = int(args[1]) if args_size >= 2 else 1 # By default, just loop the music once
 tempo = int(args[2]) if args_size == 3 else 120 # By default, set the tempo to 120
@@ -34,7 +31,7 @@ track = 0
 time = 0
 
 # Add track name and tempo.
-MyMIDI.addTrackName(track, time, "Sample Track")
+MyMIDI.addTrackName(track, time, "Main Track")
  
 # Add a note. addNote expects the following information:
 #track, channel, pitch, time, duration, volume
@@ -167,17 +164,15 @@ note_dict = {
 
 global_speed = 12
 
-def add_to_note_tuples(branch_name, cd, max_ch_dur_length, notes_added):
+def add_to_note_tuples(branch_name, cd, max_ch_dur_length, notes_added, sound_call_branches):
     global global_speed
-    sound_call_branches = []
 
     for v in branches_dict[branch_name]:
         opcode = v[0]
 
         if opcode == 'sound_call': 
             sound_call_branch = v[1]
-            sound_call_branches.extend(add_to_note_tuples(sound_call_branch, cd, max_ch_dur_length, notes_added))
-            sound_call_branches.append(sound_call_branch)
+            add_to_note_tuples(sound_call_branch, cd, max_ch_dur_length, notes_added, sound_call_branches)
         elif opcode == 'note_type':
             global_speed = v[1]
         elif opcode == 'sound_ret':
@@ -200,14 +195,8 @@ def add_to_note_tuples(branch_name, cd, max_ch_dur_length, notes_added):
                     if branch == loop_branch:
                         add = True
 
-                    if add:
-                        partial_branch = True # Music branches without sound_ret
-                        for tup in branches_dict[branch]:
-                            if tup[0] == 'sound_ret':
-                                partial_branch = False
-
-                        if partial_branch:
-                            add_to_note_tuples(branch, cd, max_ch_dur_length, 0)
+                    if add and branch not in sound_call_branches:
+                        add_to_note_tuples(branch, cd, max_ch_dur_length, 0, sound_call_branches)
 
         else: 
             note = v[1]
@@ -218,7 +207,6 @@ def add_to_note_tuples(branch_name, cd, max_ch_dur_length, notes_added):
            
             # The value is already a note tuple, add it to the list.
             cd.note_tuples.append((note, octave, duration, dur_length))
-    return sound_call_branches
 
 def add_branch_loops(branch_name, count, loop_branch):
     if count == 0:
@@ -306,8 +294,6 @@ with open(filePath, "r") as file:
             branches_dict[current_branch].append(('note_type', speed))
 
             # TODO: Volume and fade
-        #elif parts[0] == "tempo":
-        #    tempo = int(parts[1])
         elif parts[0] == "sound_loop":
             count = int(parts[1][0:len(parts[1]) - 1])
             loop_branch = parts[2]
@@ -328,13 +314,21 @@ for cd in channel_details:
     total_notes = 0
     total_duration = 0
 
+    # First establish all the branches that are called by sound_call
     for branch in cd.branches:
-        if branch in sound_call_branches:
-            # Assumption: sound call branches are never main music branches
-            continue
+        for tup in branches_dict[branch]:
+            opcode = tup[0]
 
-        # Add all note tuples into the cd.note_tuples list
-        sound_call_branches.extend(add_to_note_tuples(branch, cd, max_ch_dur_length, 0))
+            if opcode == 'sound_call':
+                sound_call_branches.append(tup[1])
+    
+
+
+    for branch in cd.branches:
+        # Assumption: sound call branches are never main music branches
+        if branch not in sound_call_branches:
+            # Add all note tuples into the cd.note_tuples list
+            add_to_note_tuples(branch, cd, max_ch_dur_length, 0, sound_call_branches)
 
     for tup in cd.note_tuples:
         note = tup[0]
