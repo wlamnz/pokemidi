@@ -16,13 +16,15 @@ if args_size < 1:
     sys.exit(0)
 
 
-print args
-
 # TODO make script take in a filename
 # filePath = "music/dungeon1.asm" 
 filePath = args[0]
 loop_times = int(args[1]) if args_size >= 2 else 1 # By default, just loop the music once
 tempo = int(args[2]) if args_size == 3 else 120 # By default, set the tempo to 120
+
+print 'File: ' + filePath
+print 'Number of times to loop: ' + str(loop_times)
+print 'Tempo: ' + str(tempo)
 
 # Create the MIDIFile Object with 1 track
 MyMIDI = MIDIFile(1)
@@ -248,7 +250,7 @@ with open(filePath, "r") as file:
                 octave = 4 # Always reset the octave when we start a new music channel
                 # This is a new channel. Create a new channel detail.
                 channel = len(channel_details) + 1
-                print("Created new channel " + str(channel))
+                #print("Created new channel " + str(channel))
                 current_channel = ChannelDetail(channel)
                 channel_details.append(current_channel)
                 speed = 12
@@ -314,12 +316,10 @@ with open(filePath, "r") as file:
 # Edge case to deal with the last channel duration length just in case it is the max 
 max_ch_dur_length = max(current_ch_dur_length, max_ch_dur_length) * loop_times
 
-print 'Tempo used ' + str(tempo)
 MyMIDI.addTempo(track, time, tempo) 
 
 # Add the notes to the midi file
 for cd in channel_details:
-    print cd.channel
     sound_call_branches = []
 
 #cd = channel_details[2]
@@ -353,8 +353,6 @@ for cd in channel_details:
 
         cd.time = cd.time + duration
     
-    print total_duration, total_notes
-
 # And write it to disk.
 binfile = open("output.mid", 'wb')
 MyMIDI.writeFile(binfile)
