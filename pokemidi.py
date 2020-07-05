@@ -6,20 +6,36 @@
 
 #Import the library
 from midiutil.MidiFile import MIDIFile
-import sys 
+import sys, getopt 
 
 args = sys.argv[1:]
-args_size = len(args)
 
-if args_size < 1:
-    print 'usage: pokemidi.py FILE [LOOP_TIMES] [TEMPO]'
-    sys.exit(0)
+file_path = None
+loop_times = 1 # By default, just loop the music once
+tempo = 120 # By default, set the tempo to 120
 
-filePath = args[0]
-loop_times = int(args[1]) if args_size >= 2 else 1 # By default, just loop the music once
-tempo = int(args[2]) if args_size == 3 else 120 # By default, set the tempo to 120
+opts = []
 
-print 'File: ' + filePath
+try: 
+    opts, args = getopt.getopt(args, "t:l:")
+except getopt.GetoptError:
+    print 'Usage: pokemidi.py -l [LOOP_TIMES] -t [TEMPO] FILEPATH'
+    sys.exit(2)
+
+# User must at least need to supply the file path to the muusic.asm file
+if len(args) < 1:
+    print 'Usage: pokemidi.py -l [LOOP_TIMES] -t [TEMPO] FILEPATH'
+    sys.exit(2)
+
+file_path = args[0]
+
+for opt, arg in opts:
+    if opt == '-l':
+        loop_times = int(arg) 
+    elif opt == '-t':
+        tempo = int(arg)
+
+print 'File: ' + file_path 
 print 'Number of times to loop: ' + str(loop_times)
 print 'Tempo: ' + str(tempo)
 
@@ -226,7 +242,7 @@ speed = 12
 max_ch_dur_length = 0
 current_ch_dur_length = 0
 
-with open(filePath, "r") as file:
+with open(file_path, "r") as file:
     for line in file:
         stripped_line = line.strip()
 
