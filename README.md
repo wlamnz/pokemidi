@@ -9,3 +9,5 @@ Requires python 2.
 Example: ```pokemidi.py -l 2 -t 120 music/pallettown.asm```
 
 The above command will generate the midi file (output.mid) containing the pallet town music. The tempo set will be 120 and the music will loop two times.
+
+Special thanks to [Diogo Bohm](https://github.com/diogobohm) for showing me the [MIDIUtil](https://pypi.org/project/MIDIUtil/) library.
